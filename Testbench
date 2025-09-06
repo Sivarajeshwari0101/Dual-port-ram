@@ -1,0 +1,79 @@
+`timescale 1ns/1ps
+module tb_dual_port_ram;
+
+    // Parameters
+    parameter DATA_WIDTH = 8;
+    parameter ADDR_WIDTH = 4;
+    parameter DEPTH = 16;
+
+    // Signals
+    reg clk;
+    reg we_a, we_b;
+    reg [ADDR_WIDTH-1:0] addr_a, addr_b;
+    reg [DATA_WIDTH-1:0] din_a, din_b;
+    wire [DATA_WIDTH-1:0] dout_a, dout_b;
+
+    // Instantiate the DUT
+    dual_port_ram #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .DEPTH(DEPTH)
+    ) dut (
+        .clk(clk),
+        .we_a(we_a),
+        .addr_a(addr_a),
+        .din_a(din_a),
+        .dout_a(dout_a),
+        .we_b(we_b),
+        .addr_b(addr_b),
+        .din_b(din_b),
+        .dout_b(dout_b)
+    );
+
+    // Clock generation
+    initial clk = 0;
+    always #5 clk = ~clk; // 10ns period clock
+
+    // Stimulus
+    initial begin
+        // Initialize
+        we_a = 0; we_b = 0;
+        addr_a = 0; addr_b = 0;
+        din_a = 0; din_b = 0;
+
+        // Write on Port A
+        @(posedge clk);
+        we_a = 1; addr_a = 4'h1; din_a = 8'hA5; // Write 0xA5 at address 1
+
+        @(posedge clk);
+        we_a = 0; // Disable write
+
+        // Read from Port A
+        @(posedge clk);
+        addr_a = 4'h1;
+
+        // Simultaneous Write on Port B and Read on Port A
+        @(posedge clk);
+        we_b = 1; addr_b = 4'h2; din_b = 8'h3C; // Port B writes 0x3C at address 2
+        addr_a = 4'h2;                          // Port A reads from address 2
+
+        @(posedge clk);
+        we_b = 0; // Disable write
+
+        // Both ports read simultaneously
+        @(posedge clk);
+        addr_a = 4'h1; 
+        addr_b = 4'h2;
+
+        // Finish simulation
+        #20;
+        $finish;
+    end
+
+    // Monitor values
+    initial begin
+        $monitor("Time=%0t | A: we=%b addr=%h din=%h dout=%h | B: we=%b addr=%h din=%h dout=%h",
+                 $time, we_a, addr_a, din_a, dout_a, we_b, addr_b, din_b, dout_b);
+    end
+
+endmodule
